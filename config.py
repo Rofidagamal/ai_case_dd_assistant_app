@@ -35,9 +35,9 @@ DEFAULTS = {
     "provider": "groq",              # "groq" | "gemini" | "ollama"
     "groq_api_key": "",
     "gemini_api_key": "",
-    "groq_model": "llama-3.3-70b-versatile",
+    "groq_model": "openai/gpt-oss-120b",
     "gemini_model": "gemini-2.5-flash",
-    "groq_vision_model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "groq_vision_model": "qwen/qwen3.8-27b",
     "ollama_vision_model": "medgemma:4b",
     "speed": "balanced",              # "balanced" | "fast" (smaller, quicker cloud models)
     "knowledge_sources": ["local", "guidelines", "reviews", "pubmed", "europepmc", "casereports",

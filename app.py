@@ -1035,7 +1035,8 @@ def image_sections(r: dict):
         out.append((tr("What to check or do next", "ما الذي يُفحص أو يُفعل بعد ذلك"), L(r.get("next_steps"))))
         if L(r.get("cannot_tell")):
             out.append((tr("What this image cannot tell", "ما لا تُظهره هذه الصورة"), L(r.get("cannot_tell"))))
-        return [(t, b) for t, b in out if b]
+        kept = [(t, b) for t, b in out if b]
+        return [(f"{n}. {t}", b) for n, (t, b) in enumerate(kept, 1)]
     for s_ in r.get("sections") or []:
         if isinstance(s_, dict):
             bl = [str(x) for x in (s_.get("bullets") or []) if x]
@@ -1531,9 +1532,9 @@ with tab5:
         if provider == "groq":
             groq_key = st.text_input("Groq API key", value=settings.get("groq_api_key", ""), type="password")
             key_note("groq")
-            groq_model = st.text_input("Groq model (text)", value=settings.get("groq_model", "llama-3.3-70b-versatile"))
+            groq_model = st.text_input("Groq model (text)", value=settings.get("groq_model", "openai/gpt-oss-120b"))
             groq_vision = st.text_input(tr("Groq vision model (used when images are attached)", "نموذج الرؤية في Groq (للصور)"),
-                                        value=settings.get("groq_vision_model", "meta-llama/llama-4-scout-17b-16e-instruct"))
+                                        value=settings.get("groq_vision_model", "qwen/qwen3.8-27b"))
             st.caption(tr("Groq's free plan has a daily allowance, so it is not unlimited. For no limit at all choose Ollama.",
                           "الخطة المجانية في Groq لها حد يومي فليست بلا حدود. لبلا حدود اختر Ollama."))
         elif provider == "gemini":

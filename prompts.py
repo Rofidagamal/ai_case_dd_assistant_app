@@ -224,8 +224,16 @@ Fill the keys IN THIS ORDER (the summary is written last, from what you listed a
  "answer_to_question": str
 }}
 Meaning of each key:
-- "description": 3 to 8 short items, each one thing you can actually see: shape,
-  colour, surface, size compared with nearby structures, position in the frame.
+- "description": 5 to 9 short items, each one thing you can actually see, in this order:
+  (1) the main lesion or abnormality: shape, size against nearby structures, margins, surface;
+  (2) its colour and the mucosa or tissue around it (redness, swelling, scarring);
+  (3) any blood, fluid, clot, stool, pus or debris, with its colour and where it sits;
+  (4) the nearby opening, lumen, fold, vessel or organ edge that locates it;
+  then (5 onward) PERTINENT NEGATIVES for the presenting problem in the clinical context:
+  things a reader would look for in this frame and could not see, each written like
+  "No definite X is seen in this still image" (for example active spurting, a visible
+  vessel, a deep crater, a mass, free air, a fracture line). Only list a negative this
+  frame could truly show, and keep each item to one plain sentence.
 - "suggests": 1 to 3 items - what the findings could mean, and how sure you are.
 - "possible_causes": at most 5, the most dangerous or most likely first, using the
   clinical context; "why" is the reason for THIS image, not a textbook definition.

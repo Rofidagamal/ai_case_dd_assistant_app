@@ -141,16 +141,25 @@ def _strip_to_json(text: str) -> dict:
 
 
 # ----------------------------------------------------------------- Groq
-GROQ_FAST = "llama-3.1-8b-instant"
+GROQ_TEXT = "openai/gpt-oss-120b"
+GROQ_VISION = "qwen/qwen3.8-27b"
+GROQ_FAST = "openai/gpt-oss-20b"
+# models Groq has shut down -> silently use the current ones
+GROQ_RETIRED = {"llama-3.3-70b-versatile": GROQ_TEXT, "llama-3.1-8b-instant": GROQ_FAST,
+                "meta-llama/llama-4-scout-17b-16e-instruct": GROQ_VISION,
+                "meta-llama/llama-4-maverick-17b-128e-instruct": GROQ_VISION,
+                "qwen/qwen3-32b": GROQ_TEXT, "qwen/qwen3.6-27b": GROQ_VISION}
 GEMINI_FAST = "gemini-2.5-flash-lite"
 
 
 def _groq_model(settings, images):
     if images:
-        return settings.get("groq_vision_model") or "meta-llama/llama-4-scout-17b-16e-instruct"
-    if settings.get("speed") == "fast":
-        return GROQ_FAST
-    return settings.get("groq_model", "llama-3.3-70b-versatile")
+        m = settings.get("groq_vision_model") or GROQ_VISION
+    elif settings.get("speed") == "fast":
+        m = GROQ_FAST
+    else:
+        m = settings.get("groq_model") or GROQ_TEXT
+    return GROQ_RETIRED.get(m, m)
 
 
 def _call_groq(system, user, settings, images=None):
@@ -177,8 +186,15 @@ def _call_groq(system, user, settings, images=None):
     if r.status_code == 400 and "response_format" in r.text:
         body.pop("response_format")
         r = _http.post(url, headers=hdr, json=body, timeout=600)
+    if r.status_code in (400, 404) and "model" in r.text and body["model"] not in (GROQ_TEXT, GROQ_VISION):
+        body["model"] = GROQ_VISION if images else GROQ_TEXT      # chosen model gone -> current default
+        r = _http.post(url, headers=hdr, json=body, timeout=600)
     if r.status_code != 200:
-        raise ProviderError(f"Groq error {r.status_code}: {r.text}")
+        hint = ""
+        if r.status_code == 404:
+            hint = (" -- Groq no longer offers this model to your key. In Settings use "
+                    f"'{GROQ_VISION if images else GROQ_TEXT}', or see console.groq.com/docs/models.")
+        raise ProviderError(f"Groq error {r.status_code}: {r.text}{hint}")
     return r.json()["choices"][0]["message"]["content"]
 
 
