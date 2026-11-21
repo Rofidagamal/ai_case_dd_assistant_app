@@ -226,11 +226,20 @@ def _call_gemini(system, user, settings, images=None):
         r = _http.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
                        params={"key": key}, json=body, timeout=600)
         tried.append(m)
-        if r.status_code != 404:            # 404 = model gone / not offered to this key -> try the next
+        if r.status_code == 503:            # busy: wait a little and retry the same model, twice
+            for wait in (3, 8):
+                time.sleep(wait)
+                r = _http.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
+                               params={"key": key}, json=body, timeout=600)
+                if r.status_code != 503:
+                    break
+        if r.status_code not in (404, 503):  # gone / busy -> try the next model
             break
     if r.status_code != 200:
         hint = (f" (tried: {', '.join(tried)}). Set the Gemini model in Settings to one listed at "
-                "aistudio.google.com") if r.status_code == 404 else ""
+                "aistudio.google.com") if r.status_code in (404, 503) else ""
+        if r.status_code == 503:
+            hint = " (Google is busy right now. Wait a minute and press the button again, or switch to Groq in Settings.)"
         raise ProviderError(f"Gemini error {r.status_code}: {r.text}{hint}")
     data = r.json()
     try:
