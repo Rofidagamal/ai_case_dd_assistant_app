@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+user_settings.json
+logs
+.env
+*.zip
+tests
+docs

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+user_settings.json
+logs/
+.env
+*.zip
+# your own protocols stay on your machine
+knowledge_base/*
+!knowledge_base/README.txt
