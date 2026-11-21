@@ -215,12 +215,15 @@ def _call_gemini(system, user, settings, images=None):
     model = GEMINI_RETIRED.get(model, model)
     if settings.get("speed") == "fast":
         model = GEMINI_FAST
-    parts = [{"text": user}] + [{"inlineData": {"mimeType": m, "data": _b64(b)}}
+    parts = [{"text": user}] + [{"inlineData": {"mimeType": m, "data": _b64(b)},
+                                 "mediaResolution": {"level": "media_resolution_high"}}
                                 for m, b in (images or [])]
     body = {"systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": parts}],
             # no maxOutputTokens -> the model's own maximum applies
-            "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}}
+            "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json",
+                                 # Gemini 3 thinks at "high" by default = minutes per image; "low" is much faster
+                                 "thinkingConfig": {"thinkingLevel": settings.get("gemini_thinking") or "low"}}}
     tried = []
     for m in [model] + [x for x in GEMINI_FALLBACKS if x != model]:
         r = _http.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
@@ -233,6 +236,13 @@ def _call_gemini(system, user, settings, images=None):
                                params={"key": key}, json=body, timeout=600)
                 if r.status_code != 503:
                     break
+        if r.status_code == 400 and ("thinking" in r.text.lower() or "mediaresolution" in r.text.lower()
+                                     or "media_resolution" in r.text.lower()):
+            body["generationConfig"].pop("thinkingConfig", None)       # this model does not take it
+            for pt in body["contents"][0]["parts"]:
+                pt.pop("mediaResolution", None)
+            r = _http.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
+                           params={"key": key}, json=body, timeout=600)
         if r.status_code not in (404, 503):  # gone / busy -> try the next model
             break
     if r.status_code != 200:
@@ -246,6 +256,53 @@ def _call_gemini(system, user, settings, images=None):
         return data["candidates"][0]["content"]["parts"][0]["text"]
     except (KeyError, IndexError):
         raise ProviderError(f"Gemini returned no text: {json.dumps(data)}")
+
+
+# --------------------------------------------------------------- OpenAI (paid, own key)
+OPENAI_MAIN = "gpt-5.6-luna"
+
+
+def _call_openai(system, user, settings, images=None):
+    key = config.api_key(settings, "openai")
+    if not key:
+        raise ProviderError("No OpenAI API key set. Go to Settings and paste your key from "
+                            "platform.openai.com/api-keys (the OpenAI API is paid per use).")
+    if images and len(images) > 10:
+        raise ProviderError(f"At most 10 images at once ({len(images)} attached).")
+    content = user
+    if images:
+        content = [{"type": "text", "text": user}] + [
+            {"type": "image_url", "image_url": {"url": f"data:{m};base64,{_b64(b)}", "detail": "high"}}
+            for m, b in images]
+    body = {"model": settings.get("openai_model") or OPENAI_MAIN,
+            "response_format": {"type": "json_object"},
+            "reasoning_effort": settings.get("openai_reasoning") or "low",   # low = fast; high = slower, more careful
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": content}]}
+    hdr = {"Authorization": f"Bearer {key}"}
+    url = "https://api.openai.com/v1/chat/completions"
+    r = _http.post(url, headers=hdr, json=body, timeout=600)
+    for wait in (3, 8):                                   # busy or rate-limited: wait and retry
+        if r.status_code not in (429, 500, 502, 503):
+            break
+        time.sleep(wait)
+        r = _http.post(url, headers=hdr, json=body, timeout=600)
+    if r.status_code == 400 and "reasoning" in r.text.lower():
+        body.pop("reasoning_effort")                      # this model does not take it
+        r = _http.post(url, headers=hdr, json=body, timeout=600)
+    if r.status_code != 200:
+        hint = ""
+        if r.status_code == 401:
+            hint = " (the key is wrong or was revoked)"
+        elif r.status_code == 404:
+            hint = " (this key cannot use that model: change 'OpenAI model' in Settings)"
+        elif r.status_code == 429:
+            hint = " (rate limit, or no credit left: check platform.openai.com/settings/organization/billing)"
+        raise ProviderError(f"OpenAI error {r.status_code}: {r.text}{hint}")
+    try:
+        return r.json()["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError):
+        raise ProviderError(f"OpenAI returned no text: {r.text[:500]}")
 
 
 # --------------------------------------------------------------- Ollama
@@ -505,7 +562,7 @@ def _call_ollama(system, user, settings, images=None, on_progress=None):
     return content
 
 
-_CALLERS = {"groq": _call_groq, "gemini": _call_gemini, "ollama": _call_ollama}
+_CALLERS = {"groq": _call_groq, "gemini": _call_gemini, "openai": _call_openai, "ollama": _call_ollama}
 
 
 def ask_json(system: str, user: str, settings: dict, images=None, use_cache=True,
@@ -520,8 +577,8 @@ def ask_json(system: str, user: str, settings: dict, images=None, use_cache=True
         raise ProviderError(f"Unknown provider '{provider}'.")
     h = hashlib.sha256()
     for part in (provider, json.dumps({k: settings.get(k) for k in (
-            "groq_model", "groq_vision_model", "gemini_model", "ollama_model",
-            "ollama_vision_model", "speed", "ollama_num_predict")}), system, user):
+            "groq_model", "groq_vision_model", "gemini_model", "openai_model", "openai_reasoning", "ollama_model",
+            "ollama_vision_model", "speed", "ollama_num_predict", "gemini_thinking")}), system, user):
         h.update(str(part).encode())
     for _, b in images or []:
         h.update(b)

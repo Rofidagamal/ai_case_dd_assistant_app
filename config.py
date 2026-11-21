@@ -20,7 +20,7 @@ EVENTS_LOG = LOG_DIR / "events.jsonl"
 PUBLIC_MODE = os.environ.get("PUBLIC_MODE", "").strip().lower() in ("1", "true", "yes")
 
 # A host can provide keys as environment variables (never shown on the page).
-ENV_KEYS = {"groq": "GROQ_API_KEY", "gemini": "GEMINI_API_KEY", "ncbi": "NCBI_API_KEY"}
+ENV_KEYS = {"groq": "GROQ_API_KEY", "gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY", "ncbi": "NCBI_API_KEY"}
 
 
 def api_key(settings: dict, name: str) -> str:
@@ -32,11 +32,15 @@ def has_key(settings: dict, name: str) -> bool:
     return bool(api_key(settings, name))
 
 DEFAULTS = {
-    "provider": "groq",              # "groq" | "gemini" | "ollama"
+    "provider": "groq",              # "groq" | "gemini" | "openai" | "ollama"
     "groq_api_key": "",
     "gemini_api_key": "",
+    "openai_api_key": "",
+    "openai_model": "gpt-5.6-luna",
+    "openai_reasoning": "low",
     "groq_model": "openai/gpt-oss-120b",
     "gemini_model": "gemini-3.8-flash",
+    "gemini_thinking": "low",
     "groq_vision_model": "qwen/qwen3.8-27b",
     "ollama_vision_model": "medgemma:4b",
     "speed": "balanced",              # "balanced" | "fast" (smaller, quicker cloud models)
@@ -120,7 +124,7 @@ NO_IMAGES_NOTE_EN, NO_IMAGES_NOTE_AR = UPLOAD_NOTE_EN, UPLOAD_NOTE_AR
 
 def default_settings() -> dict:
     s = dict(DEFAULTS)
-    if os.environ.get("DEFAULT_PROVIDER") in ("groq", "gemini", "ollama"):
+    if os.environ.get("DEFAULT_PROVIDER") in ("groq", "gemini", "openai", "ollama"):
         s["provider"] = os.environ["DEFAULT_PROVIDER"]
     s["settings_version"] = 2
     return s

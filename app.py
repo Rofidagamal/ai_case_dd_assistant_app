@@ -128,6 +128,8 @@ def model_label() -> str:
         return settings.get("ollama_model") or "?"
     if prov == "gemini":
         return settings.get("gemini_model") or "?"
+    if prov == "openai":
+        return settings.get("openai_model") or "?"
     return settings.get("groq_model") or "?"
 
 
@@ -312,7 +314,7 @@ with st.sidebar:
         save_s({**settings, "ai_language": new_ai_lang})
         st.rerun()
     dep_name = settings.get("department_other") if settings.get("department") == "Other" else settings.get("department")
-    prov_label = {"groq": "Groq", "gemini": "Gemini", "ollama": "Ollama (local)"}[settings.get("provider", "groq")]
+    prov_label = {"groq": "Groq", "gemini": "Gemini", "openai": "OpenAI", "ollama": "Ollama (local)"}[settings.get("provider", "groq")]
     st.markdown("---")
     st.markdown(
         f"{tr('Model', 'النموذج')}: **{bidi(esc(prov_label) + ' · ' + esc(model_label()))}**  \n"
@@ -320,9 +322,9 @@ with st.sidebar:
         unsafe_allow_html=True)
     st.caption(tr("Change these in the Settings tab.", "يمكن تغييرها من تبويب الإعدادات."))
     if config.PUBLIC_MODE:
-        st.info(tr("Shared demo: do not enter patient names or ID numbers. Your text is sent to the AI provider you choose (Groq or Gemini). "
+        st.info(tr("Shared demo: do not enter patient names or ID numbers. Your text is sent to the AI provider you choose (Groq, Gemini or OpenAI). "
                    "Nothing is saved on this server.",
-                   "نسخة مشتركة: لا تُدخل أسماء المرضى أو أرقام هويتهم. يُرسل نصك إلى مزوّد الذكاء الذي تختاره (Groq أو Gemini). "
+                   "نسخة مشتركة: لا تُدخل أسماء المرضى أو أرقام هويتهم. يُرسل نصك إلى مزوّد الذكاء الذي تختاره (Groq أو Gemini أو OpenAI). "
                    "لا يُحفظ شيء على هذا الخادم."))
     st.caption(f"v{config.VERSION} · MIT · " + tr("teaching tool, not medical advice", "أداة تعليمية وليست نصيحة طبية"))
 
@@ -341,7 +343,7 @@ st.markdown(f"<div class='disclaimer'>⚠️ {esc(config.DISCLAIMER_AR if RTL el
             unsafe_allow_html=True)
 
 if AUTO_FROM:
-    nm_ = {"groq": "Groq", "gemini": "Gemini"}.get(AUTO_FROM, AUTO_FROM)
+    nm_ = {"groq": "Groq", "gemini": "Gemini", "openai": "OpenAI"}.get(AUTO_FROM, AUTO_FROM)
     cA, cB = st.columns([4, 1], vertical_alignment="center")
     cA.info(tr(f"No {nm_} key is set, so the app is using Ollama on this computer (free, no limits). ",
                f"لا يوجد مفتاح {nm_}، لذا يستخدم التطبيق Ollama على هذا الحاسوب (مجاني بلا حدود). "))
@@ -354,7 +356,7 @@ if prov != "ollama" and not config.has_key(settings, prov):
     st.info(tr("No API key set yet. Open the Settings tab to add one (2 minutes).",
                "لم يتم إدخال مفتاح API بعد. اذهب إلى تبويب الإعدادات لإضافته (دقيقتان)."))
 
-PROV_OPTIONS = ["groq", "gemini"] if config.PUBLIC_MODE else ["groq", "gemini", "ollama"]
+PROV_OPTIONS = ["groq", "gemini", "openai"] if config.PUBLIC_MODE else ["groq", "gemini", "openai", "ollama"]
 
 tab1, tab_img, tab_mg, tab2, tab3, tab5 = st.tabs([
     tr("Case", "الحالة"), tr("Identify", "ما هذا؟"), tr("Management", "خطة العلاج"), tr("AI differential", "التشخيص التفريقي"),
@@ -430,7 +432,7 @@ def engine_status() -> dict:
                                         "قراءة الصور اختيارية وغير مفعّلة. الإعدادات ← محرك الذكاء ← نزّل medgemma:4b (3.3 جيجا).")))
     else:
         has_key = config.has_key(settings, p)
-        nm = {"groq": "Groq", "gemini": "Gemini"}[p]
+        nm = {"groq": "Groq", "gemini": "Gemini", "openai": "OpenAI"}[p]
         lines.append(("ok" if has_key else "bad",
                       tr(f"{nm} key is set", f"مفتاح {nm} موجود") if has_key else
                       tr(f"No {nm} key yet: open Settings -> AI engine and paste a free key (2 minutes).",
@@ -511,7 +513,7 @@ def image_model_label() -> str:
             return providers._resolve_ollama_model(settings, vision=True)
         except providers.ProviderError:
             return settings.get("ollama_vision_model", "?")
-    return (settings.get("groq_vision_model") if p == "groq" else settings.get("gemini_model")) or "?"
+    return (settings.get("groq_vision_model") if p == "groq" else settings.get("openai_model") if p == "openai" else settings.get("gemini_model")) or "?"
 
 
 REPORT_CSS = """
@@ -1514,6 +1516,8 @@ with tab5:
                                               "Groq - سحابة مجانية سريعة جداً، تحتاج إنترنت ومفتاحاً مجانياً"),
                                    "gemini": tr("Google Gemini - free cloud, reads images well, needs a free key",
                                                 "Google Gemini - سحابة مجانية، تقرأ الصور جيداً، تحتاج مفتاحاً مجانياً"),
+                                   "openai": tr("OpenAI (ChatGPT models) - paid per use with your own key, strong at images",
+                                                "OpenAI (نماذج ChatGPT) - مدفوع حسب الاستخدام بمفتاحك الخاص، قوي في الصور"),
                                    "ollama": tr("Ollama - on THIS computer: private, free, no limits, works offline",
                                                 "Ollama - على هذا الحاسوب: خاص ومجاني بلا حدود ويعمل بدون إنترنت")}[p])
         if provider != settings.get("provider", "groq"):
@@ -1526,7 +1530,9 @@ with tab5:
         auto_ev = st.checkbox(tr("Look up every diagnosis in the knowledge sources automatically (parallel, adds a few seconds)",
                                  "ابحث تلقائياً عن كل تشخيص في مصادر المعرفة (بالتوازي)"),
                               value=bool(settings.get("auto_evidence", True)))
-        groq_key = groq_model = groq_vision = gemini_key = gemini_model = ""
+        groq_key = groq_model = groq_vision = gemini_key = gemini_model = openai_key = openai_model = ""
+        openai_reason = "low"
+        gemini_think = "low"
         ollama_url = ollama_model = ollama_vision = ""
         ollama_num_ctx, ollama_num_predict, ollama_auto_ctx = 16384, 0, True
         if provider == "groq":
@@ -1542,8 +1548,24 @@ with tab5:
             key_note("gemini")
             gemini_model = st.text_input(tr("Gemini model (reads text and images)", "نموذج Gemini (يقرأ النص والصور)"),
                                          value=settings.get("gemini_model", "gemini-3.8-flash"))
+            _lv = ["low", "medium", "high", "minimal"]
+            gemini_think = st.selectbox(
+                tr("Thinking depth (low = fast, high = slower and more careful)", "عمق التفكير (low أسرع، high أبطأ وأدق)"),
+                _lv, index=_lv.index(settings.get("gemini_thinking", "low")) if settings.get("gemini_thinking", "low") in _lv else 0)
             st.caption(tr("Gemini's free plan has per-minute and daily limits, so it is not unlimited. For no limit at all choose Ollama.",
                           "الخطة المجانية في Gemini لها حدود في الدقيقة واليوم فليست بلا حدود. لبلا حدود اختر Ollama."))
+        elif provider == "openai":
+            openai_key = st.text_input("OpenAI API key", value=settings.get("openai_api_key", ""), type="password")
+            key_note("openai")
+            openai_model = st.text_input(tr("OpenAI model (reads text and images)", "نموذج OpenAI (يقرأ النص والصور)"),
+                                         value=settings.get("openai_model", "gpt-5.6-luna"))
+            _ol = ["low", "medium", "high", "none"]
+            openai_reason = st.selectbox(
+                tr("Reasoning effort (low = fast and cheap, high = slower and more careful)", "جهد التفكير (low أسرع وأرخص، high أبطأ وأدق)"),
+                _ol, index=_ol.index(settings.get("openai_reasoning", "low")) if settings.get("openai_reasoning", "low") in _ol else 0)
+            st.warning(tr("The OpenAI API is not free: you pay per use from your own OpenAI account (about a few cents per image on the small model). "
+                          "Create a key at platform.openai.com/api-keys and add a little credit under Billing.",
+                          "واجهة OpenAI ليست مجانية: تدفع حسب الاستخدام من حسابك. أنشئ مفتاحاً من platform.openai.com/api-keys وأضف رصيداً صغيراً من Billing."))
         else:
             ollama_url = st.text_input("Ollama address", value=settings.get("ollama_url", "http://localhost:11434"))
             det = providers.list_ollama_models_detailed({"ollama_url": ollama_url})
@@ -1676,7 +1698,9 @@ with tab5:
         if provider == "groq":
             ns.update(groq_api_key=groq_key, groq_model=groq_model, groq_vision_model=groq_vision)
         elif provider == "gemini":
-            ns.update(gemini_api_key=gemini_key, gemini_model=gemini_model)
+            ns.update(gemini_api_key=gemini_key, gemini_model=gemini_model, gemini_thinking=gemini_think)
+        elif provider == "openai":
+            ns.update(openai_api_key=openai_key, openai_model=openai_model, openai_reasoning=openai_reason)
         else:
             ns.update(ollama_url=ollama_url, ollama_model=ollama_model, ollama_vision_model=ollama_vision,
                       ollama_num_ctx=int(ollama_num_ctx), ollama_num_predict=int(ollama_num_predict),
