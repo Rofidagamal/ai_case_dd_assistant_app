@@ -36,7 +36,7 @@ DEFAULTS = {
     "groq_api_key": "",
     "gemini_api_key": "",
     "groq_model": "openai/gpt-oss-120b",
-    "gemini_model": "gemini-2.5-flash",
+    "gemini_model": "gemini-3.8-flash",
     "groq_vision_model": "qwen/qwen3.8-27b",
     "ollama_vision_model": "medgemma:4b",
     "speed": "balanced",              # "balanced" | "fast" (smaller, quicker cloud models)

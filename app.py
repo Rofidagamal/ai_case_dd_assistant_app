@@ -1541,7 +1541,7 @@ with tab5:
             gemini_key = st.text_input("Gemini API key", value=settings.get("gemini_api_key", ""), type="password")
             key_note("gemini")
             gemini_model = st.text_input(tr("Gemini model (reads text and images)", "نموذج Gemini (يقرأ النص والصور)"),
-                                         value=settings.get("gemini_model", "gemini-2.5-flash"))
+                                         value=settings.get("gemini_model", "gemini-3.8-flash"))
             st.caption(tr("Gemini's free plan has per-minute and daily limits, so it is not unlimited. For no limit at all choose Ollama.",
                           "الخطة المجانية في Gemini لها حدود في الدقيقة واليوم فليست بلا حدود. لبلا حدود اختر Ollama."))
         else:

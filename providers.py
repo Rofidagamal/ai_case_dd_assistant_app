@@ -149,7 +149,12 @@ GROQ_RETIRED = {"llama-3.3-70b-versatile": GROQ_TEXT, "llama-3.1-8b-instant": GR
                 "meta-llama/llama-4-scout-17b-16e-instruct": GROQ_VISION,
                 "meta-llama/llama-4-maverick-17b-128e-instruct": GROQ_VISION,
                 "qwen/qwen3-32b": GROQ_TEXT, "qwen/qwen3.6-27b": GROQ_VISION}
-GEMINI_FAST = "gemini-2.5-flash-lite"
+GEMINI_MAIN = "gemini-3.8-flash"
+GEMINI_FAST = "gemini-3.5-flash-lite"
+GEMINI_FALLBACKS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+# old names Google no longer gives to new keys -> use the current one
+GEMINI_RETIRED = {"gemini-2.5-flash": GEMINI_MAIN, "gemini-2.5-flash-lite": GEMINI_FAST,
+                  "gemini-2.0-flash": GEMINI_MAIN, "gemini-2.0-flash-lite": GEMINI_FAST}
 
 
 def _groq_model(settings, images):
@@ -204,24 +209,29 @@ def _call_gemini(system, user, settings, images=None):
     if not key:
         raise ProviderError("No Gemini API key set. Go to Settings and paste a "
                             "free key from aistudio.google.com/apikey.")
-    model = settings.get("gemini_model", "gemini-2.5-flash")
-    if model.startswith("gemini-1.5"):      # retired by Google -> upgrade silently
-        model = "gemini-2.5-flash"
+    model = settings.get("gemini_model") or GEMINI_MAIN
+    if model.startswith("gemini-1.5"):
+        model = GEMINI_MAIN
+    model = GEMINI_RETIRED.get(model, model)
     if settings.get("speed") == "fast":
         model = GEMINI_FAST
     parts = [{"text": user}] + [{"inlineData": {"mimeType": m, "data": _b64(b)}}
                                 for m, b in (images or [])]
-    r = _http.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-        params={"key": key},
-        # no maxOutputTokens -> the model's own maximum applies
-        json={"systemInstruction": {"parts": [{"text": system}]},
-              "contents": [{"role": "user", "parts": parts}],
-              "generationConfig": {"temperature": 0.2,
-                                   "responseMimeType": "application/json"}},
-        timeout=600)
+    body = {"systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": parts}],
+            # no maxOutputTokens -> the model's own maximum applies
+            "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}}
+    tried = []
+    for m in [model] + [x for x in GEMINI_FALLBACKS if x != model]:
+        r = _http.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
+                       params={"key": key}, json=body, timeout=600)
+        tried.append(m)
+        if r.status_code != 404:            # 404 = model gone / not offered to this key -> try the next
+            break
     if r.status_code != 200:
-        raise ProviderError(f"Gemini error {r.status_code}: {r.text}")
+        hint = (f" (tried: {', '.join(tried)}). Set the Gemini model in Settings to one listed at "
+                "aistudio.google.com") if r.status_code == 404 else ""
+        raise ProviderError(f"Gemini error {r.status_code}: {r.text}{hint}")
     data = r.json()
     try:
         return data["candidates"][0]["content"]["parts"][0]["text"]
